@@ -1,0 +1,56 @@
+Assembly Accession	Assembly Name	Organism Name	Organism Infraspecific Names Breed	Organism Infraspecific Names Strain	Organism Infraspecific Names Cultivar	Organism Infraspecific Names Ecotype	Organism Infraspecific Names Isolate	Organism Infraspecific Names Sex	Annotation Name	Assembly Level	Assembly Release Date	WGS project accession	Assembly Stats Number of Scaffolds
+GCA_907164805.1	iBraPut3m.1	Brachyptera putata								Chromosome	2021-05-17		14
+GCA_901001165.2	fSalTru1.2	Salmo trutta								Chromosome	2021-04-24	CAAJIE02	1440
+GCA_901001165.1	fSalTru1.1	Salmo trutta								Chromosome	2019-06-02	CAAJIE01	1440
+GCF_901001165.1	fSalTru1.1	Salmo trutta							NCBI Salmo trutta Annotation Release 100	Chromosome	2019-06-02	CAAJIE01	1440
+GCF_900496995.4	bAquChr1.4	Aquila chrysaetos chrysaetos							NCBI Aquila chrysaetos chrysaetos Annotation Release 101	Chromosome	2021-03-26	UFQG04	144
+GCA_902652985.1	xPecMax1.1	Pecten maximus								Chromosome	2019-11-26	CACRWE01	3983
+GCF_902652985.1	xPecMax1.1	Pecten maximus							NCBI Pecten maximus Annotation Release 100	Chromosome	2019-11-26	CACRWE01	3983
+GCA_902713615.2	sScyCan1.2	Scyliorhinus canicula								Chromosome	2021-01-28	CACTIT02	645
+GCA_902713615.1	sScyCan1.1	Scyliorhinus canicula								Chromosome	2020-12-17	CACTIT01	645
+GCF_902713615.1	sScyCan1.1	Scyliorhinus canicula							NCBI Scyliorhinus canicula Annotation Release 100	Chromosome	2020-12-17	CACTIT01	645
+GCA_902655055.2	mLutLut1.2	Lutra lutra								Chromosome	2020-07-31	CACRWI02	43
+GCF_902655055.1	mLutLut1.2	Lutra lutra							GCF_902655055.1-RS_2023_03	Chromosome	2020-07-31	CACRWI02	43
+GCA_902686445.2	mSciCar1.2	Sciurus carolinensis								Chromosome	2020-07-31	CACRXI02	752
+GCF_902686445.1	mSciCar1.2	Sciurus carolinensis							GCF_902686445.1-RS_2023_03	Chromosome	2020-07-31	CACRXI02	752
+GCA_903797595.2	bEriRub2.2	Erithacus rubecula								Chromosome	2021-05-03	CAIGJR02	1119
+GCA_903992545.1	mPipPip1.1	Pipistrellus pipistrellus								Chromosome	2020-08-06	CAJEUD01	322
+GCA_912470025.1	iVesVel2.1	Vespa velutina								Chromosome	2021-08-14	CAJVVP01	42
+GCF_912470025.1	iVesVel2.1	Vespa velutina							NCBI Vespa velutina Annotation Release 100	Chromosome	2021-08-14	CAJVVP01	42
+GCA_902459465.3	eAstRub1.3	Asterias rubens								Chromosome	2020-02-12	CABPRM03	150
+GCF_902459465.1	eAstRub1.3	Asterias rubens							NCBI Asterias rubens Annotation Release 100	Chromosome	2020-02-12	CABPRM03	150
+GCA_902686455.2	mSciVul1.2	Sciurus vulgaris								Chromosome	2020-07-31	CACRXJ02	638
+GCA_901699155.2	bStrTur1.2	Streptopelia turtur								Chromosome	2021-05-17	CABFKC02	311
+GCA_902806685.2	iAphHyp1.2	Maniola hyperantus								Chromosome	2021-04-15	CADCXM02	87
+GCF_902806685.2	iAphHyp1.2	Maniola hyperantus							GCF_902806685.2-RS_2024_10	Chromosome	2024-04-04	CADCXM02	87
+GCA_907164915.1	dImpGla2.1	Impatiens glandulifera								Chromosome	2021-05-17	CAJRAH01	1114
+GCF_907164915.1	dImpGla2.1	Impatiens glandulifera							NCBI Impatiens glandulifera Annotation Release 100	Chromosome	2021-05-17	CAJRAH01	1114
+GCA_907164935.1	iOsmBic2.1	Osmia bicornis bicornis								Chromosome	2021-05-17	CAJRAL01	441
+GCF_907164935.1	iOsmBic2.1	Osmia bicornis bicornis							NCBI Osmia bicornis bicornis Annotation Release 101	Chromosome	2021-05-17	CAJRAL01	441
+GCA_907164795.1	iHemFuc1.1	Hemaris fuciformis								Chromosome	2021-05-17	CAJRAC01	42
+GCA_903992535.2	mArvAmp1.2	Arvicola amphibius								Chromosome	2021-05-15	CAJEUG02	215
+GCF_903992535.2	mArvAmp1.2	Arvicola amphibius							NCBI Arvicola amphibius Annotation Release 101	Chromosome	2021-05-15	CAJEUG02	215
+GCA_907164885.2	qDolPla1.2	Dolomedes plantarius								Chromosome	2022-10-30	CAJRAI02	437
+GCA_910822075.1	dSenSqu2.1	Senecio squalidus								Scaffold	2022-02-18	CAJVGC01	592
+GCA_900496995.4	bAquChr1.4	Aquila chrysaetos chrysaetos								Chromosome	2021-03-26	UFQG04	144
+GCA_963576595.1	ilAphHype2.1	Maniola hyperantus								Chromosome	2023-11-03	CAUYWA01	46
+GCA_902652895.1	xPecMax1.1 alternate haplotype	Pecten maximus								Contig	2019-11-26	CACRVO01
+GCA_902713625.2	sScyCan1.2 alternate haplotype	Scyliorhinus canicula								Scaffold	2021-01-28	CACTIS02	26649
+GCA_902685475.1	mSciCar1.1 alternate haplotype	Sciurus carolinensis								Scaffold	2019-11-26	CACRXG01	9508
+GCA_902653095.1	mLutLut1.1 alternate haplotype	Lutra lutra								Contig	2019-12-09	CACRWF01
+GCA_903797565.2	bEriRub2.2 alternate haplotype	Erithacus rubecula								Scaffold	2021-03-21	CAIGJN02	3668
+GCA_903992515.1	mPipPip1.1 alternate haplotype	Pipistrellus pipistrellus								Scaffold	2020-08-04	CAJEUF01	10447
+GCA_902459445.1	eAstRub1.2 alternate haplotype	Asterias rubens								Scaffold	2019-08-16	CABPRO01	3969
+GCA_912469955.1	iVesVel2.1 alternate haplotype	Vespa velutina								Contig	2021-08-14	CAJVVO01
+GCA_963576635.1	ilAphHype2.1 alternate haplotype	Maniola hyperantus								Contig	2023-11-03	CAUYWG01
+GCA_901699165.2	bStrTur1.2 alternate haplotype	Streptopelia turtur								Contig	2021-04-15	CABFKB02	
+GCA_907164895.1	dImpGla2.1 alternate haplotype	Impatiens glandulifera								Scaffold	2021-05-15	CAJRAG01	2278
+GCA_902685485.1	mSciVul1.1 alternate haplotype	Sciurus vulgaris								Scaffold	2019-11-26	CACRXH01	10655
+GCA_902806615.1	iAphHyp1.1 alternate haplotype	Maniola hyperantus								Scaffold	2020-02-19	CADCXF01	3149
+GCA_907164925.1	iOsmBic2.1 alternate haplotype	Osmia bicornis bicornis								Scaffold	2021-05-15	CAJRAK01	853
+GCA_907164865.1	iHemFuc1.1 alternate haplotype	Hemaris fuciformis								Scaffold	2021-05-15	CAJRAE01	262
+GCA_907164875.2	qDolPla1.2 alternate haplotype	Dolomedes plantarius								Scaffold	2022-10-30	CAJRAJ02	13348
+GCA_903992525.1	mArvAmp1.1 alternate haplotype	Arvicola amphibius								Scaffold	2020-08-04	CAJEUE01	16368
+GCA_910821995.1	dSenSqu2.1 alternate haplotype	Senecio squalidus								Scaffold	2022-02-18	CAJVGA01	4768
+GCA_907164815.1	iBraPut3m.1 alternate haplotype	Brachyptera putata								Scaffold	2021-05-15	CAJRAB01	2316
+GCA_902153765.2	bAquChr1.4 alternate haplotype	Aquila chrysaetos chrysaetos								Scaffold	2021-03-26	CABFWM02	3855
