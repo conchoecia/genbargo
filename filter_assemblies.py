@@ -5,7 +5,7 @@ The point of this is to filter a directory of pregenerated rbh files to remove t
 
 (1) First load the directory of existing files
 (2) Load a csv of annotated and unannotated genomes.
-(3) Find the files that do not have an accession in the CSV.
+(3) Find the files that do not have an accession in the dataframe of assemblies.
      Print these out for the user and make them type something
      to continue or not.
 (4) Identify accessions that are possibly under embargo still
@@ -44,6 +44,7 @@ The point of this is to filter a directory of pregenerated rbh files to remove t
   - Make a spreadsheet with the genome assemblies, the embargo status, and a description of why it is or is not under embargo.
 """
 
+import argparse
 import os
 import sys
 import pandas as pd
@@ -572,10 +573,35 @@ def annotate_embargo_status(df) -> pd.DataFrame:
 
     return df
 
+def parse_args():
+    """
+    The args we need are:
+      - tsvs of annotated and unannotated genomes
+      - directory of rbh files
+    """
+    parser = argparse.ArgumentParser(description="Filter assemblies based on their embargo status.")
+    parser.add_argument("-t", "-tsvs", nargs="+", help="List of csvs that contain the annotated and unannotated genomes.")
+    parser.add_argument("-d", "-rbh_directory", help="Directory of the rbh files.")
+    args = parser.parse_args()
+    print(args)
+
+    # check that the tsvs exist
+    for tsv in args.t:
+        if not os.path.exists(tsv):
+            raise IOError("The file {} does not exist.".format(tsv))
+    # check that the directory exists
+    if not os.path.exists(args.d):
+        raise IOError("The directory {} does not exist.".format(args.rbh_directory))
+
+    return args
+
 def main():
-    list_of_NCBI_csvs = ["/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/annotated_genomes_chr_202312301553.tsv",
-                         "/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/unannotated_genomes_chr_202312301553.tsv"]
-    directory_of_rbh_files = "/lisc/scratch/molevo/dts/manifold/BCnSSimakov2022_current_rbh/"
+    args = parse_args()
+    list_of_NCBI_csvs = args.t
+    directory_of_rbh_files = args.d
+    #list_of_NCBI_csvs = ["/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/annotated_genomes_chr_202312301553.tsv",
+    #                     "/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/unannotated_genomes_chr_202312301553.tsv"]
+    #directory_of_rbh_files = "/lisc/scratch/molevo/dts/manifold/BCnSSimakov2022_current_rbh/"
 
     # (1) First load the directory of existing files
     rbhlist = [x for x in os.listdir(directory_of_rbh_files) if x.endswith(".rbh")]
@@ -621,14 +647,24 @@ def main():
     # This calls many helper functions that annotate the genomes based on the submitter.
     df = annotate_embargo_status(df)
     print(df)
-    sys.exit()
 
-
+    # this code prints out the unique genome submitters
     for entry in sorted([str(x) for x in df["Assembly Submitter"].unique().tolist()]):
         print(entry)
 
-    # (3) Find the files that do not have an accession in the CSV.
+    # (3) Find the files that do not have an accession in the dataframe.
+    files_missing_in_tsv = set()
+    files_embargoed      = set()
+    files_not_embargoed  = set()
+    for key in accession_dict:
+        if key not in df["Assembly Accession"].tolist():
+            files_missing_in_tsv.add(key)
 
+    if len(files_missing_in_tsv) > 0:
+        print("There are {} files that are missing in the TSV.".format(len(files_missing_in_tsv)))
+        #print("The following files are missing in the TSV:")
+        #for key in files_missing_in_tsv:
+        #    print(key, accession_dict[key])
     # 1 - 
     # 2
     # 3
