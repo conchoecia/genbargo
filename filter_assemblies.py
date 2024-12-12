@@ -34,7 +34,7 @@ The point of this is to filter a directory of pregenerated rbh files to remove t
        ii) else (the genome is not annotated)
          - The embargo lift date is one year from the assembly
            upload date
-(5) From the list of embargo’d genomes, flag them as out of embargo if they have been published. Give specific publications if they truly have been published.
+(5) Add publication information for each assembly, update the embargo information if they were released through publication.
 (6) Write the files:
   - Make a folder that has embargo’d genomes
   - a folder that has genomes that are not embargo’d
@@ -46,6 +46,7 @@ The point of this is to filter a directory of pregenerated rbh files to remove t
 
 import argparse
 import os
+import shutil
 import sys
 import pandas as pd
 
@@ -109,7 +110,7 @@ def _row_helper_DToL(df, index, row):
     df.at[index, "EmbargoLiftDate"]   = row["Assembly Release Date"].strftime("%Y-%m-%d")
     df.at[index, "EmbargoDaysUntil"]  = days_until
 
-def _row_helper_VPG(df, index, row):
+def _row_helper_VPG(df, index, row, conservative = False):
     """
     This splits out the annotation task for a specific row to apply the VGP embargo policy.
     This allows us to use this embargo policy against specific rows.
@@ -168,7 +169,13 @@ def _row_helper_VPG(df, index, row):
         df.at[index, "EmbargoReason"] = embargo_reason_message
     else:
         # The genome is not annotated. The Embargo Lift date is therefore 1 or 2 years after the Assembly Release Date
-        timestamp = row["Assembly Release Date"] + pd.DateOffset(years = offset_time)
+        if conservative == True:
+            # We multiply the offset time by 2 to get the maximum possible embargo date, under the assumption that we have possibly missed the annotation.
+            # We could get more genomes if we knew the date on which this spreadsheet was generated, but to avoid overcomplicating this, we will just use the maximum possible embargo date.
+            timestamp = row["Assembly Release Date"] + pd.DateOffset(years = offset_time*2)
+            embargo_reason_message += " This embargo date has been conservatively estimated to be {} year(s) after the assembly upload date, on the chance that this report was generated before the annotation was released within the embargo lapse window.".format(offset_time*2)
+        else:
+            timestamp = row["Assembly Release Date"] + pd.DateOffset(years = offset_time)
         df.at[index, "EmbargoLiftDate"] = timestamp.strftime("%Y-%m-%d")
         embargo_reason_message += " There is no annotation released currently for this assembly. This may change at a later date."
         embargo_reason_message += " Therefore, the Embargo Lift Date is {} year(s) after the assembly upload date.".format(offset_time)
@@ -192,13 +199,17 @@ def _row_helper_VPG(df, index, row):
     # This is the end of the for loop for the rows where we will process the entries under the VGP
     df.at[index, "EmbargoReason"] = embargo_reason_message
 
-def _annotate_embargo_status_VGP(df):
+def _annotate_embargo_status_VGP(df, conservative = False) -> pd.DataFrame:
     """
     Helper function called by annotate_embargo_status. Only used to annotate the rows with VGP genomes.
 
     Takes in a pandas dataframe and annotates the rows with the VGP embargo status.
     The ingested dataframe should already contain the columns we need to annotate.
     Returns the pandas dataframe with the VGP embargo status annotated.
+
+    The conservative option is used to apply conservative options to specific projects.
+      - VGP - the conservative flag applies the maxium possible embargo date (2 years for post-May 1st, 2024 genomes, 4 years for pre-May 1st, 2024 genomes)
+        for unannotated genomes. This is to avoid the case in which the spreadsheet is not updated with the annotation release date.
 
     Case for the following organizations, specified on the VGP website:
     - Vertebrate Genomes Project:
@@ -363,10 +374,67 @@ def _annotate_embargo_status_VGP(df):
         if row["Assembly Submitter"] in VGP_policy_submitters:
             #print("- Looking at a genome submitted by {}".format(row["Assembly Submitter"]))
             # This is part of the VGP project, so we need to annotate it.
-            _row_helper_VPG(df, index, row)
+            _row_helper_VPG(df, index, row, conservative = conservative)
     return df
 
-def _annotate_embargo_status_WellcomeSangerInstitute(df):
+def _annotate_embargo_status_DNAZoo(df) -> pd.DataFrame:
+    """
+    Helper function called by annotate_embargo_status.
+    Only used to annotate the rows with the DNA Zoo as the assembly submitter.
+
+    As of December 10th, 2024, there were 55 chromosome-scale genome assemblies
+      available on NCBI from DNA Zoo. Genomes are submitted under the name "DNA Zoo".
+
+    Takes in a pandas dataframe and annotates the rows with the DNA Zoo embargo status.
+    Returns the pandas dataframe with the DNA Zoo embargo status annotated.
+
+    The embargo information for DNA Zoo was collected on December 10th, 2024.
+    The policy website is here: https://www.dnazoo.org/usage
+    The policy is also saved in the file embargo_policies/DNAzoo_20241210.pdf
+    Their policy states that, "All DNA Zoo data, including genome assemblies, genome annotations,
+    DNA-Seq data, and Hi-C maps, are shared freely without any restriction."
+
+    They request that users cite this specific paper if the individual genome assembly does not have
+      an annotation.
+      The paper: Dudchenko, Olga, Sanjit S. Batra, Arina D. Omer, Sarah K. Nyquist, Marie Hoeger,
+                 Neva C. Durand, Muhammad S. Shamim, et al. 2017. "De Novo Assembly of the Aedes
+                 Aegypti Genome Using Hi-C Yields Chromosome-Length Scaffolds." Science
+                 (New York, N.Y.) 356 (6333): 92-95. https://doi.org/10.1126/science.aal3327.
+      PMID: 28336562
+    """
+    # check that all of the columns are in the dataframe
+    _required_column_check(df)
+
+    DNAzoo_submitters = ["DNA Zoo"]
+    DNAzoo_submitters += [x.lower() for x in DNAzoo_submitters]
+
+    # Iterate through all of the rows in the dataframe to determine the outcome assembly-by-assembly.
+    # Not efficient, but good for this sort of thing.
+    counter = 0
+    for index, row in df.iterrows():
+        if row["Assembly Submitter"] in DNAzoo_submitters:
+            days_until = int((row["Assembly Release Date"] - pd.Timestamp.today()).days)
+            df.at[index, "Embargo"]                    = "Not Embargoed"
+            df.at[index, "EmbargoPolicy"]              = "DNA Zoo Open Data Release Policy"
+            df.at[index, "EmbargoPolicyLink"]          = "https://www.dnazoo.org/usage"
+            # Add the Open Data Release embargo information.
+            embargo_message = ""
+            embargo_message =  "This genome falls under the DNA Zoo data use policy."
+            embargo_message += " The policy text states, \"All DNA Zoo data, including genome assemblies, genome annotations, DNA-Seq data, and Hi-C maps, are shared freely without any restriction.\""
+            embargo_message += " This assembly's 'Assembly Release Date' on NCBI/ENA is {}.".format(row["Assembly Release Date"].strftime("%Y-%m-%d"))
+            embargo_message += " Therefore, the genome has not been under an embargo since its publication date,"
+            embargo_message += " {} years and {} days ago".format(-1 * days_until//365, -1 * days_until%365)
+            embargo_message += " since this report was generated on {}.".format(pd.Timestamp.today().strftime("%Y-%m-%d"))
+            embargo_message += " The authors request that publications using these genomes at least cite the article, Dudchenko et al. (2017) https://doi.org/10.1126/science.aal3327 ."
+            df.at[index, "EmbargoReason"]              = embargo_message
+            df.at[index, "EmbargoLiftPublication"]     = "Dudchenko, Batra, Omer,  et al. 2017. De Novo Assembly of the Aedes Aegypti Genome Using Hi-C Yields Chromosome-Length Scaffolds. Science (New York, N.Y.) 356 (6333): 92-95."
+            df.at[index, "EmbargoLiftPublicationPMID"] = "28336562"
+            df.at[index, "EmbargoLiftPublicationDOI"]  = "https://doi.org/10.1126/science.aal3327"
+            df.at[index, "EmbargoLiftDate"]            = row["Assembly Release Date"].strftime("%Y-%m-%d")
+            df.at[index, "EmbargoDaysUntil"]           = days_until
+    return df
+
+def _annotate_embargo_status_WellcomeSangerInstitute(df, conservative = False) -> pd.DataFrame:
     """
     Helper function called by annotate_embargo_status.
     Only used to annotate the rows with genomes submitted by the The Wellcome Sanger Institute,
@@ -470,7 +538,7 @@ def _annotate_embargo_status_WellcomeSangerInstitute(df):
             # check if the Assembly Accession is in the Sanger 25 Genomes Project. Just get the base number.
             if thisassembly in sanger25df_unique:
                 # This genome is part of the Sanger 25 Genomes Project, so we need to annotate its embargo status with the VGP embargo policy.
-                _row_helper_VPG(df, index, row)
+                _row_helper_VPG(df, index, row, conservative = conservative)
                 # Diagnostic print
                 #df.at[index, "EmbargoReason"] = "This genome is part of the Sanger 25 Genomes Project. " + df.at[index, "EmbargoReason"]
                 #for column in df.columns:
@@ -485,7 +553,7 @@ def _annotate_embargo_status_WellcomeSangerInstitute(df):
                 #        print("{}: {}".format(column, df.at[index, column]))
     return df
 
-def _annotate_embargo_status_Unknown(df):
+def _annotate_embargo_status_Unknown(df) -> pd.DataFrame:
     """
     Helper function called by annotate_embargo_status.
       This function adds some information to the rows that have an unknown embargo status.
@@ -502,8 +570,6 @@ def _annotate_embargo_status_Unknown(df):
             comment_text = str(row["Assembly BioSample Description Comment"]).lower()
             if "embargo" not in comment_text:
                 df.at[index, "Embargo"]           = "Not Embargoed"
-                df.at[index, "EmbargoPolicy"]     = "Darwin Tree of Life Open Data Release Policy v1.04"
-                df.at[index, "EmbargoPolicyLink"] = "https://www.darwintreeoflife.org/wp-content/uploads/2024/10/DToL-Open-Data-Release-Policy.docx_.pdf"
                 df.at[index, "EmbargoReason"]     = "We are not aware of an embargo policy for this genome, and there is no embargo policy specified in the \"Assembly BioSample Description Comment\" field."
                 df.at[index, "EmbargoLiftDate"]   = row["Assembly Release Date"].strftime("%Y-%m-%d")
                 days_until = row["Assembly Release Date"] - pd.Timestamp.today()
@@ -512,9 +578,13 @@ def _annotate_embargo_status_Unknown(df):
                 raise IOError("We should have caught all of the genomes that are not embargoed by now, but there was message about an embargo in the \"Assembly BioSample Description Comment\" field for assembly {}".format(row["Assembly Accession"]))
     return df
 
-def annotate_embargo_status(df) -> pd.DataFrame:
+def annotate_embargo_status(df, conservative = False) -> pd.DataFrame:
     """
     This function will annotate the dataframe with the embargo status of the genomes.
+
+    The conservative option is used to apply conservative options to specific projects.
+      - VGP - the conservative flag applies the maxium possible embargo date (2 years for post-May 1st, 2024 genomes, 4 years for pre-May 1st, 2024 genomes)
+        for unannotated genomes. This is to avoid the case in which the spreadsheet is not updated with the annotation release date.
 
     The relevant fields to fill out are the following:
     - Embargo
@@ -562,26 +632,200 @@ def annotate_embargo_status(df) -> pd.DataFrame:
 
     # First, process the VGP embargo
     # I could probably just do these by reference later.
-    df = _annotate_embargo_status_VGP(df)
+    df = _annotate_embargo_status_VGP(df, conservative = conservative)
     print("We're done checking which VGP genomes are embargoed.")
     # Next, process the Wellcome Sanger Institute genomes
-    df = _annotate_embargo_status_WellcomeSangerInstitute(df)
+    df = _annotate_embargo_status_WellcomeSangerInstitute(df, conservative = conservative)
     print("We're done checking the embargoes of the Wellcome Sanger Institute.")
+    # Next process DNA Zoo genomes. These specify a publication that they want to be cited.
+    df = _annotate_embargo_status_DNAZoo(df)
+    print("We're done checking the embargoes of the DNA Zoo.")
     # Next, process the genomes for which we have not yet found some annotation information.
     df = _annotate_embargo_status_Unknown(df)
     print("We're done checking the embargoes of the remaining genomes.")
 
     return df
 
+def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dict):
+    """
+    This generates a report of the genomes that are embargoed and not embargoed, and those that
+      were in the directory but were not in the spreadsheet.
+    """
+    # Check to make sure that the output directory exists.
+    output_directory = os.path.dirname(output_filepath)
+    if not os.path.exists(output_directory):
+        raise IOError("The output directory {} does not exist.".format(output_directory))
+    ## Check to make sure that the output file does not already exist.
+    #if os.path.exists(output_filepath):
+    #    raise IOError("The output file {} already exists.".format(output_filepath))
+    today_string = pd.Timestamp.today().strftime("%Y-%m-%d")
+    # number of genomes in the spreadsheet
+    num_genomes_spreadsheet = len(df)
+    # number of genomes in the directory
+    num_genomes_directory = len(accession_dict)
+    # number of genomes in the directory but not in the spreadsheet
+    num_genomes_not_in_spreadsheet = len(files_not_in_spreadsheet)
+    # number of genomes in the spreadsheet but not in the directory
+    num_genomes_not_in_directory = len([x for x in df["Assembly Accession"] if x not in files_not_in_spreadsheet])
+    # number of genomes that are embargoed
+    num_genomes_embargoed = len(df[df["Embargo"] == "Embargoed"])
+    # Number of vertebrate genomes that are embargoed. Look for ;7742; in the lineage to determine if it is a vertebrate.
+    num_genomes_embargoed_vertebrate = len(df[(df["Embargo"] == "Embargoed") & (df["Lineage"].str.contains(";7742;"))])
+    # number of genomes that are not embargoed
+    num_genomes_not_embargoed = len(df[df["Embargo"] == "Not Embargoed"])
+    # Number of vertebrate genomes that are not embargoed. Look for ;7742; in the lineage to determine if it is a vertebrate.
+    num_genomes_not_embargoed_vertebrate = len(df[(df["Embargo"] == "Not Embargoed") & (df["Lineage"].str.contains(";7742;"))])
+    # number of non-embargoed genomes that have no policy specified. Use the "Embargo" column = "Unknown value"
+    num_genomes_not_embargoed_unknown = len(df[(df["Embargo"] == "Not Embargoed") & (df["EmbargoPolicy"] == "Unknown")])
+    # number of non-embargoed genomes that have a policy explictly stating that they are not embargoed, like DToL. "Darwin Tree of Life" should be in the EmbargoPolicy column.
+    num_genomes_not_embargoed_DToL = len(df[(df["Embargo"] == "Not Embargoed") & (df["EmbargoPolicy"].str.contains("Darwin Tree of Life"))])
+    # number of non-embargoed genomes that do have an embargo policy, but the date has passed (look for VGP in the string)
+    num_genomes_not_embargoed_embargoed = len(df[(df["Embargo"] == "Not Embargoed") & (df["EmbargoPolicy"].str.contains("VGP"))])
+
+    # Get a df of just the vertebrates, then groupby and count by the embargo policy and whether it is embargoed
+    vdf = df[df["Lineage"].str.contains(";7742;")]
+    counts = vdf.groupby(["Embargo", "EmbargoPolicy"]).size().reset_index(name='counts')
+    counts["PercentOfVertebrates"] = 100 * counts["counts"] / len(vdf)
+    vdf_embargoPolicy_counts_percent = counts
+
+    # make a df of the vertebrates, and sort it by the embargo policy and how many submitters are under each
+    vdf2 = df[df["Lineage"].str.contains(";7742;")]
+    counts2 = vdf2.groupby(["Embargo", "Assembly Submitter"]).size().reset_index(name='counts')
+    counts2 = counts2.sort_values(by = ["Embargo", "counts"], ascending = [True, False])
+    # get rid of every row where counts is fewer than 5
+    counts2 = counts2[counts2["counts"] > 4]
+    counts2["PercentOfVertebrates"] = 100 * counts2["counts"] / len(vdf2)
+    vdf_embargoPolicy_submitter_counts_percent = counts2
+
+    # get a df of th
+    # Total number of vertebrates in the dataset
+    num_vertebrates = len(df[df["Lineage"].str.contains(";7742;")])
+    # number of genomes that have the VGP policy and are vertebrates
+    num_genomes_VGP_vertebrates = len(df[(df["EmbargoPolicy"].str.contains("Vertebrate Genomes Project")) & (df["Lineage"].str.contains(";7742;"))])
+    # percent of vertebrate genomes that have VGP policy
+    percent_genomes_VGP_vertebrates = 100 * num_genomes_VGP_vertebrates / num_vertebrates
+    # number of vertebrate genomes that are DToL
+    num_genomes_DToL_vertebrates = len(df[(df["EmbargoPolicy"].str.contains("Darwin Tree of Life")) & (df["Lineage"].str.contains(";7742;"))])
+    # percent of vertebrate genomes that are DToL
+    percent_genomes_DToL_vertebrates = 100 * num_genomes_DToL_vertebrates / num_vertebrates
+    # number of DNA Zoo genomes that are also vertebrates
+    num_genomes_DNAZoo_vertebrates = len(df[(df["EmbargoPolicy"].str.contains("DNA Zoo")) & (df["Lineage"].str.contains(";7742;"))])
+    # percent of vertebrate genomes that are DNA Zoo.
+
+    # number of embargoed vertebrates that are VGP
+    num_embargoed_VGP_vertebrates = len(df[(df["Embargo"] == "Embargoed") & (df["EmbargoPolicy"].str.contains("Vertebrate Genomes Project")) & (df["Lineage"].str.contains(";7742;"))])
+    # percent of all embargoed vertebrates that are VGP
+    percent_embargoed_vertebrates_VGP = 100 * num_embargoed_VGP_vertebrates / num_genomes_embargoed_vertebrate
+    # number of non-embargoed vertebrates that are VGP
+    num_not_embargoed_VGP_vertebrates = len(df[(df["Embargo"] == "Not Embargoed") & (df["EmbargoPolicy"].str.contains("Vertebrate Genomes Project")) & (df["Lineage"].str.contains(";7742;"))])
+    # percent of all non-embargoed vertebrates that are VGP
+    percent_not_embargoed_vertebrates_VGP = 100 * num_not_embargoed_VGP_vertebrates / num_genomes_not_embargoed_vertebrate
+
+    # count the number of genomes of each policy type for the embargoed genomes
+    policy_counts_embargoed     = df[df["Embargo"] == "Embargoed"]["EmbargoPolicy"].value_counts()
+    # count the number of genomes of each policy type for the non-embargoed genomes
+    policy_counts_not_embargoed = df[df["Embargo"] == "Not Embargoed"]["EmbargoPolicy"].value_counts()
+
+    # count the number of genomes each submitter has in the spreadsheet for embargoed genomes
+    submitter_counts_embargoed     = df[df["Embargo"] == "Embargoed"]["Assembly Submitter"].value_counts()
+    # count the number of genomes each submitter has in the spreadsheet for non-embargoed genomes
+    submitter_counts_not_embargoed = df[df["Embargo"] == "Not Embargoed"]["Assembly Submitter"].value_counts()
+
+    # t is the output text that we will write to the file.
+    t  =  "# Genome Embargo Report\n"
+    t += "\n"
+    t += "Program     : filter_assemblies.py\n"
+    t += "Language    : python\n"
+    t += "Report Date : {}\n".format(today_string)
+    t += "Contact     : darrin.schultz@univie.ac.at\n"
+    t += "Github      : TBD\n"
+    t += "\n"
+    t += "Description:\n"
+    t += "  This report contains information about the embargo status of genomes.\n"
+    t += "\n"
+    t += "Summary:\n"
+    t += "  - Number of genomes in the spreadsheet: {}\n".format(num_genomes_spreadsheet)
+    t += "  - Number of genomes in the directory: {}\n".format(num_genomes_directory)
+    t += "  - Number of genomes in the directory but not in the spreadsheet: {}\n".format(num_genomes_not_in_spreadsheet)
+    t += "  - Number of genomes in the spreadsheet but not in the directory: {}\n".format(num_genomes_not_in_directory)
+    t += "  - Number of genomes that are embargoed: {}\n".format(num_genomes_embargoed)
+    t += "    - # embargoed vertebrate (7742) genomes: {}\n".format(num_genomes_embargoed_vertebrate)
+    t += "  - Number of genomes that are not embargoed: {}\n".format(num_genomes_not_embargoed)
+    t += "    - # non-embargoed vertebrate (7742) genomes: {}\n".format(num_genomes_not_embargoed_vertebrate)
+    t += "    - Number of genomes that are not embargoed, but have an unknown embargo policy: {}\n".format(num_genomes_not_embargoed_unknown)
+    t += "    - Number of genomes that are not embargoed, but have an open (DToL) embargo policy: {}\n".format(num_genomes_not_embargoed_DToL)
+    t += "    - Number of genomes that are not embargoed, but have an embargo policy that has passed: {}\n".format(num_genomes_not_embargoed_embargoed)
+    t += "\n"
+    t += "  - Total number of vertebrates in the dataset: {}\n".format(num_vertebrates)
+    t += "\n"
+    # print vdf_embargoPolicy_counts_percent without row numbers, and print sums at the bottom for columns counts, and PercentOfVertebrates
+    t += vdf_embargoPolicy_counts_percent.to_string(index=False)
+    t += "\n\n"
+    # print vdf_embargoPolicy_submitter_counts_percent without row numbers, and print sums at the bottom for columns counts, and PercentOfVertebrates
+    t += vdf_embargoPolicy_submitter_counts_percent.to_string(index=False)
+    t += "\n\n"
+
+    subdf = df[(df["Embargo"] == "Not Embargoed") & (df["Assembly BioSample Description Comment"].str.contains("embargo"))]
+    t += "The {} genomes that are listed as not embargoed, but have the string \"embargo\" in the \"Assembly BioSample Description Comment\" field, are shown below.\n".format(len(subdf))
+    # Print each of these columns in markdown format.
+    # "Assembly Accession", "Assembly BioSample Description Comment", "Embargo",
+    #           "EmbargoPolicy", "EmbargoReason", "EmbargoLiftPublication",
+    #           "EmbargoLiftPublicationPMID", "EmbargoLiftPublicationDOI", "EmbargoLiftDate"
+    target_cols = ["Assembly Accession", "Assembly BioSample Description Comment", "Embargo",
+                     "EmbargoPolicy", "EmbargoReason", "EmbargoLiftPublication",
+                     "EmbargoLiftPublicationPMID", "EmbargoLiftPublicationDOI", "EmbargoLiftDate"]
+    for index, row in subdf.iterrows():
+        t += "  - {}\n".format(row["Assembly Accession"])
+        for keycol in target_cols:
+            t += "    - {}: {}\n".format(keycol, row[keycol])
+
+    t += "\n\n"
+    t += "The number of policies of the embargoed genomes:\n"
+    for policy in policy_counts_embargoed.index:
+        t += "  - {}: {}\n".format(policy, policy_counts_embargoed[policy])
+    t += "\n"
+    t += "The number of policies of the non-embargoed genomes:\n"
+    for policy in policy_counts_not_embargoed.index:
+        t += "  - {}: {}\n".format(policy, policy_counts_not_embargoed[policy])
+    t += "\n"
+    t += "The number of genomes each submitter has in the spreadsheet for the embargoed genomes:\n"
+    for submitter in submitter_counts_embargoed.index:
+        t += "  - {}: {}\n".format(submitter, submitter_counts_embargoed[submitter])
+    t += "\n"
+    t += "The number of genomes each submitter has in the spreadsheet for the non-embargoed genomes:\n"
+    for submitter in submitter_counts_not_embargoed.index:
+        t += "  - {}: {}\n".format(submitter, submitter_counts_not_embargoed[submitter])
+
+    # Write the report to the file.
+    with open(output_filepath, "w") as f:
+        f.write(t)
+
 def parse_args():
     """
     The args we need are:
       - tsvs of annotated and unannotated genomes
       - directory of rbh files
+      - an output directory to put the results in
+        - genomes_embargoed_rbh_files_YYYYMMDD/
+        - genomes_notembargoed_rbh_files_YYYYMMDD/
+        - genomes_not_in_spreadsheet_rbh_files_YYYYMMDD/
+        - spreadsheet_genomes_all_YYYYMMDD.tsv
+        - spreadsheet_genomes_embargoed_YYYYMMDD.tsv
+        - spreadsheet_genomes_notembargoed_YYYYMMDD.tsv
+      - A flag for conservative mode for VGP genomes
+        - in this mode, the only VGP genomes allowed are those in which
+          the assembly was submitted the max amount of time ago, allowing
+          for the spreadsheed to be a bit outdated and lacking annotations.
+      - A flag to not transfer the rbhfiles
     """
     parser = argparse.ArgumentParser(description="Filter assemblies based on their embargo status.")
     parser.add_argument("-t", "-tsvs", nargs="+", help="List of csvs that contain the annotated and unannotated genomes.")
     parser.add_argument("-d", "-rbh_directory", help="Directory of the rbh files.")
+    # default is the present working directory
+    pwd = os.getcwd()
+    parser.add_argument("-o", "-output_directory", default = pwd, help="Directory to put the output files in.")
+    parser.add_argument("-c", "-conservative", action="store_true", default = False, help="Conservative mode for VGP genomes. Allows for the possibility that the annotation was released after the spreadsheet date.")
+    parser.add_argument("-n", "-no_transfer", action="store_true", default = False, help="Do not transfer the rbh files.")
     args = parser.parse_args()
     print(args)
 
@@ -592,7 +836,6 @@ def parse_args():
     # check that the directory exists
     if not os.path.exists(args.d):
         raise IOError("The directory {} does not exist.".format(args.rbh_directory))
-
     return args
 
 def main():
@@ -643,34 +886,98 @@ def main():
     df["EmbargoLiftDate"]            = "No Assigned Date"
     df["EmbargoDaysUntil"]           = 99999999
 
-    # Annotate the embargo status of the genomes in the spreadsheet.
-    # This calls many helper functions that annotate the genomes based on the submitter.
-    df = annotate_embargo_status(df)
-    print(df)
-
-    # this code prints out the unique genome submitters
-    for entry in sorted([str(x) for x in df["Assembly Submitter"].unique().tolist()]):
-        print(entry)
+    ## this code prints out the unique genome submitters
+    #for entry in sorted([str(x) for x in df["Assembly Submitter"].unique().tolist()]):
+    #    print(entry)
 
     # (3) Find the files that do not have an accession in the dataframe.
+    #     Also determine which genomes go into which folder in the end.
     files_missing_in_tsv = set()
-    files_embargoed      = set()
-    files_not_embargoed  = set()
+    accession_list = [x.replace("_", "") for x in df["Assembly Accession"].tolist()]
     for key in accession_dict:
-        if key not in df["Assembly Accession"].tolist():
+        thisacc = accession_dict[key]["accession"].strip("_")
+        if thisacc.strip("_") not in accession_list:
             files_missing_in_tsv.add(key)
 
     if len(files_missing_in_tsv) > 0:
         print("There are {} files that are missing in the TSV.".format(len(files_missing_in_tsv)))
-        #print("The following files are missing in the TSV:")
-        #for key in files_missing_in_tsv:
-        #    print(key, accession_dict[key])
-    # 1 - 
-    # 2
-    # 3
-    # 4
-    # 5
-    # 6 - write the files
+        print("  - They are:")
+        for key in files_missing_in_tsv:
+            print("    -", key, accession_dict[key]["filename"])
+
+    # (4) Identify accessions that are possibly under embargo still
+    #   This calls many helper functions that annotate the genomes based on the submitter.
+    df = annotate_embargo_status(df, conservative = args.c)
+    print(df)
+
+    # (5) Add publication information for each assembly,
+    #      update the embargo information if they were released through publication.
+    # TODO
+
+    # (6) Write the files:
+    #  - genomes_embargoed_rbh_files_YYYYMMDD/
+    #  - genomes_notembargoed_rbh_files_YYYYMMDD/
+    #  - genomes_not_in_spreadsheet_rbh_files_YYYYMMDD/
+    #  - spreadsheet_genomes_all_YYYYMMDD.tsv
+    #  - spreadsheet_genomes_embargoed_YYYYMMDD.tsv
+    #  - spreadsheet_genomes_notembargoed_YYYYMMDD.tsv
+    #  - report_genomes_YYYYMMDD.txt
+
+    datetoday     = pd.Timestamp.today().strftime("%Y%m%d")
+    # First, check that the output directory exists
+    if not os.path.exists(args.o):
+        os.makedirs(args.o)
+
+    # Don't transfer files if the flag is set.
+    if not args.n:
+        # Next, make the subdirectories
+        # - genomes_embargoed_rbh_files_YYYYMMDD/
+        # - genomes_notembargoed_rbh_files_YYYYMMDD/
+        # - genomes_not_in_spreadsheet_rbh_files_YYYYMMDD/
+        embargodir    = os.path.join(args.o, "genomes_embargoed_rbh_files_{}".format(datetoday))
+        notembargodir = os.path.join(args.o, "genomes_notembargoed_rbh_files_{}".format(datetoday))
+        notintsvdir   = os.path.join(args.o, "genomes_not_in_spreadsheet_rbh_files_{}".format(datetoday))
+        for dirname in [embargodir, notembargodir, notintsvdir]:
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+        # Next, copy the rbh files to their respective directories
+        counter = 0
+        for key in accession_dict:
+            # print a single-line progress message
+            counter += 1
+            # format the last field as 2 decimal places
+            print("\r    Copying file {} of {} - {:.2f}%".format(
+                counter, len(accession_dict), 100*counter/len(accession_dict)), end = "")
+            correct_accession = key
+            # This is hacky and should be fixed later.
+            if (key[0:3] == "GCA") or (key[0:3] == "GCF"):
+                if key[3] != "_":
+                    correct_accession = key[:3] + "_" + key[3:]
+
+            if key in files_missing_in_tsv:
+                shutil.copy(accession_dict[key]["filepath"], notintsvdir)
+            else:
+                if correct_accession not in df["Assembly Accession"].tolist():
+                    raise IOError("The accession {} is not in the dataframe, but we should have found it.".format(correct_accession))
+                else:
+                    if df[df["Assembly Accession"] == correct_accession]["Embargo"].tolist()[0] == "Embargoed":
+                        shutil.copy(accession_dict[key]["filepath"], embargodir)
+                    else:
+                        shutil.copy(accession_dict[key]["filepath"], notembargodir)
+        print()
+        print()
+
+    # Write the three spreadsheets
+    allspreadsheet = os.path.join(args.o, "spreadsheet_genomes_all_{}.tsv".format(datetoday))
+    embargospreadsheet = os.path.join(args.o, "spreadsheet_genomes_embargoed_{}.tsv".format(datetoday))
+    notembargospreadsheet = os.path.join(args.o, "spreadsheet_genomes_notembargoed_{}.tsv".format(datetoday))
+    df.to_csv(allspreadsheet, sep = "\t", index = False)
+    df[df["Embargo"] == "Embargoed"].to_csv(embargospreadsheet, sep = "\t", index = False)
+    df[df["Embargo"] == "Not Embargoed"].to_csv(notembargospreadsheet, sep = "\t", index = False)
+
+    # Write a report of the number of genomes in each category.
+    reportfile = os.path.join(args.o, "report_genomes_{}.txt".format(datetoday))
+    generate_report(reportfile, df, files_missing_in_tsv, accession_dict)
 
 if __name__ == "__main__":
     main()

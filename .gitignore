@@ -1,2 +1,5 @@
 /filter_assemblies.py~
 run_filter.sh
+run_dbbuilder.sh
+testing*/*
+*.swp
