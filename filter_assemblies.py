@@ -819,13 +819,13 @@ def parse_args():
       - A flag to not transfer the rbhfiles
     """
     parser = argparse.ArgumentParser(description="Filter assemblies based on their embargo status.")
-    parser.add_argument("-t", "-tsvs", nargs="+", help="List of csvs that contain the annotated and unannotated genomes.")
-    parser.add_argument("-d", "-rbh_directory", help="Directory of the rbh files.")
+    parser.add_argument("-t", "--tsvs", nargs="+", help="List of csvs that contain the annotated and unannotated genomes.")
+    parser.add_argument("-d", "--rbh_directory", help="Directory of the rbh files.")
     # default is the present working directory
     pwd = os.getcwd()
-    parser.add_argument("-o", "-output_directory", default = pwd, help="Directory to put the output files in.")
-    parser.add_argument("-c", "-conservative", action="store_true", default = False, help="Conservative mode for VGP genomes. Allows for the possibility that the annotation was released after the spreadsheet date.")
-    parser.add_argument("-n", "-no_transfer", action="store_true", default = False, help="Do not transfer the rbh files.")
+    parser.add_argument("-o", "--output_directory", default = pwd, help="Directory to put the output files in.")
+    parser.add_argument("-c", "--conservative", action="store_true", default = False, help="Conservative mode for VGP genomes. Allows for the possibility that the annotation was released after the spreadsheet date.")
+    parser.add_argument("-n", "--no_transfer", action="store_true", default = False, help="Do not transfer the rbh files.")
     args = parser.parse_args()
     print(args)
 
@@ -840,8 +840,8 @@ def parse_args():
 
 def main():
     args = parse_args()
-    list_of_NCBI_csvs = args.t
-    directory_of_rbh_files = args.d
+    list_of_NCBI_csvs = args.tsvs
+    directory_of_rbh_files = args.rbh_directory
     #list_of_NCBI_csvs = ["/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/annotated_genomes_chr_202312301553.tsv",
     #                     "/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/unannotated_genomes_chr_202312301553.tsv"]
     #directory_of_rbh_files = "/lisc/scratch/molevo/dts/manifold/BCnSSimakov2022_current_rbh/"
@@ -907,7 +907,7 @@ def main():
 
     # (4) Identify accessions that are possibly under embargo still
     #   This calls many helper functions that annotate the genomes based on the submitter.
-    df = annotate_embargo_status(df, conservative = args.c)
+    df = annotate_embargo_status(df, conservative = args.conservative)
     print(df)
 
     # (5) Add publication information for each assembly,
@@ -925,18 +925,18 @@ def main():
 
     datetoday     = pd.Timestamp.today().strftime("%Y%m%d")
     # First, check that the output directory exists
-    if not os.path.exists(args.o):
-        os.makedirs(args.o)
+    if not os.path.exists(args.output_directory):
+        os.makedirs(args.output_directory)
 
     # Don't transfer files if the flag is set.
-    if not args.n:
+    if not args.no_transfer:
         # Next, make the subdirectories
         # - genomes_embargoed_rbh_files_YYYYMMDD/
         # - genomes_notembargoed_rbh_files_YYYYMMDD/
         # - genomes_not_in_spreadsheet_rbh_files_YYYYMMDD/
-        embargodir    = os.path.join(args.o, "genomes_embargoed_rbh_files_{}".format(datetoday))
-        notembargodir = os.path.join(args.o, "genomes_notembargoed_rbh_files_{}".format(datetoday))
-        notintsvdir   = os.path.join(args.o, "genomes_not_in_spreadsheet_rbh_files_{}".format(datetoday))
+        embargodir    = os.path.join(args.output_directory, "genomes_embargoed_rbh_files_{}".format(datetoday))
+        notembargodir = os.path.join(args.output_directory, "genomes_notembargoed_rbh_files_{}".format(datetoday))
+        notintsvdir   = os.path.join(args.output_directory, "genomes_not_in_spreadsheet_rbh_files_{}".format(datetoday))
         for dirname in [embargodir, notembargodir, notintsvdir]:
             if not os.path.exists(dirname):
                 os.makedirs(dirname)
@@ -968,15 +968,15 @@ def main():
         print()
 
     # Write the three spreadsheets
-    allspreadsheet = os.path.join(args.o, "spreadsheet_genomes_all_{}.tsv".format(datetoday))
-    embargospreadsheet = os.path.join(args.o, "spreadsheet_genomes_embargoed_{}.tsv".format(datetoday))
-    notembargospreadsheet = os.path.join(args.o, "spreadsheet_genomes_notembargoed_{}.tsv".format(datetoday))
+    allspreadsheet        = os.path.join(args.output_directory, "spreadsheet_genomes_all_{}.tsv".format(datetoday))
+    embargospreadsheet    = os.path.join(args.output_directory, "spreadsheet_genomes_embargoed_{}.tsv".format(datetoday))
+    notembargospreadsheet = os.path.join(args.output_directory, "spreadsheet_genomes_notembargoed_{}.tsv".format(datetoday))
     df.to_csv(allspreadsheet, sep = "\t", index = False)
-    df[df["Embargo"] == "Embargoed"].to_csv(embargospreadsheet, sep = "\t", index = False)
+    df[df["Embargo"] == "Embargoed"].to_csv(    embargospreadsheet, sep = "\t", index = False)
     df[df["Embargo"] == "Not Embargoed"].to_csv(notembargospreadsheet, sep = "\t", index = False)
 
     # Write a report of the number of genomes in each category.
-    reportfile = os.path.join(args.o, "report_genomes_{}.txt".format(datetoday))
+    reportfile = os.path.join(args.output_directory, "report_genomes_{}.txt".format(datetoday))
     generate_report(reportfile, df, files_missing_in_tsv, accession_dict)
 
 if __name__ == "__main__":
