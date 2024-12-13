@@ -578,6 +578,37 @@ def _annotate_embargo_status_Unknown(df) -> pd.DataFrame:
                 raise IOError("We should have caught all of the genomes that are not embargoed by now, but there was message about an embargo in the \"Assembly BioSample Description Comment\" field for assembly {}".format(row["Assembly Accession"]))
     return df
 
+def _annotate_embargo_status_embargoString(df):
+    """
+    Helper function called by annotate_embargo_status.
+      This function adds some information to the rows that have the string "embargo"
+      in the "Assembly BioSample Description Comment" field. Specifically, this function then marks them
+      as embargoed, and changes the embargo status to "Embargoed".
+    """
+    # Iterate through all of the rows in the dataframe to determine the outcome assembly-by-assembly.
+    # Not efficient, but good for this sort of thing.
+    counter = 0
+    for index, row in df.iterrows():
+        comment_text = str(row["Assembly BioSample Description Comment"]).lower()
+        if "embargo" in comment_text:
+            if row["Embargo"] == "Embargoed":
+                t = row["EmbargoReason"]
+                t += " The assembly has the string \"embargo\" in the \"Assembly BioSample Description Comment\" field."
+                t += " This is consistent with the embargo status of the genome."
+                df.at[index, "EmbargoReason"]     = t
+            elif row["Embargo"] == "Not Embargoed":
+                df.at[index, "Embargo"] = "Embargo Ambiguous"
+                t = row["EmbargoReason"]
+                t += " On the other hand, there is a string \"embargo\" in the \"Assembly BioSample Description Comment\" field."
+                t += " Please check that field to clarify why the word \"embargo\" is still present."
+                t += " It is possible that this string should it have been removed,"
+                t += " or that the intention is to extend the embargo past the policy data for this specific accession."
+                df.at[index, "EmbargoReason"]     = t
+            else:
+                raise IOError("The embargo status should not be unknown at this point.")
+
+    return df
+
 def annotate_embargo_status(df, conservative = False) -> pd.DataFrame:
     """
     This function will annotate the dataframe with the embargo status of the genomes.
@@ -644,6 +675,11 @@ def annotate_embargo_status(df, conservative = False) -> pd.DataFrame:
     df = _annotate_embargo_status_Unknown(df)
     print("We're done checking the embargoes of the remaining genomes.")
 
+    # Lastly, in the conservative case, identify which of these genomes have the string "embargo"
+    #  in the "Assembly BioSample Description Comment" field.
+    if conservative == True:
+        df = _annotate_embargo_status_embargoString(df)
+
     return df
 
 def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dict):
@@ -696,6 +732,14 @@ def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dic
     counts2 = counts2[counts2["counts"] > 4]
     counts2["PercentOfVertebrates"] = 100 * counts2["counts"] / len(vdf2)
     vdf_embargoPolicy_submitter_counts_percent = counts2
+
+    # make a similar df for all genomes, not just vertebrates
+    counts_all = df.groupby(["Embargo", "Assembly Submitter"]).size().reset_index(name='counts')
+    counts_all = counts_all.sort_values(by = ["Embargo", "counts"], ascending = [True, False])
+    # get rid of every row where counts is fewer than 5
+    counts_all = counts_all[counts_all["counts"] > 4]
+    counts_all["PercentOfAllGenomes"] = 100 * counts_all["counts"] / len(df)
+
 
     # get a df of th
     # Total number of vertebrates in the dataset
@@ -756,6 +800,10 @@ def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dic
     t += "    - Number of genomes that are not embargoed, but have an open (DToL) embargo policy: {}\n".format(num_genomes_not_embargoed_DToL)
     t += "    - Number of genomes that are not embargoed, but have an embargo policy that has passed: {}\n".format(num_genomes_not_embargoed_embargoed)
     t += "\n"
+    t += "Assembly statistics on all genomes:\n"
+    t += "\n"
+    t += counts_all.to_string(index=False)
+    t += "\n\n"
     t += "  - Total number of vertebrates in the dataset: {}\n".format(num_vertebrates)
     t += "\n"
     # print vdf_embargoPolicy_counts_percent without row numbers, and print sums at the bottom for columns counts, and PercentOfVertebrates
@@ -765,19 +813,29 @@ def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dic
     t += vdf_embargoPolicy_submitter_counts_percent.to_string(index=False)
     t += "\n\n"
 
-    subdf = df[(df["Embargo"] == "Not Embargoed") & (df["Assembly BioSample Description Comment"].str.contains("embargo"))]
-    t += "The {} genomes that are listed as not embargoed, but have the string \"embargo\" in the \"Assembly BioSample Description Comment\" field, are shown below.\n".format(len(subdf))
-    # Print each of these columns in markdown format.
-    # "Assembly Accession", "Assembly BioSample Description Comment", "Embargo",
-    #           "EmbargoPolicy", "EmbargoReason", "EmbargoLiftPublication",
-    #           "EmbargoLiftPublicationPMID", "EmbargoLiftPublicationDOI", "EmbargoLiftDate"
     target_cols = ["Assembly Accession", "Assembly BioSample Description Comment", "Embargo",
                      "EmbargoPolicy", "EmbargoReason", "EmbargoLiftPublication",
                      "EmbargoLiftPublicationPMID", "EmbargoLiftPublicationDOI", "EmbargoLiftDate"]
-    for index, row in subdf.iterrows():
-        t += "  - {}\n".format(row["Assembly Accession"])
-        for keycol in target_cols:
-            t += "    - {}: {}\n".format(keycol, row[keycol])
+    subdf = df[(df["Embargo"] == "Not Embargoed") & (df["Assembly BioSample Description Comment"].str.contains("embargo"))]
+    if len(subdf) > 0:
+        t += "The {} genomes that are listed as not embargoed, but have the string \"embargo\" in the \"Assembly BioSample Description Comment\" field, are shown below. ".format(len(subdf))
+        t += " This likely means that the filter was run without the --conservative flag.\n"
+        # Print each of these columns in markdown format.
+        for index, row in subdf.iterrows():
+            t += "  - {}\n".format(row["Assembly Accession"])
+            for keycol in target_cols:
+                t += "    - {}: {}\n".format(keycol, row[keycol])
+
+    subdf = df[df["Embargo"] == "Embargo Ambiguous"]
+    if len(subdf) > 0:
+        t += "The {} genomes have the string \"embargo\" in the \"Assembly BioSample Description Comment\" field, are shown below.".format(len(subdf))
+        t += " This likely means that the filter was run with the --conservative flag.\n"
+        # Print each of these columns in markdown format.
+        for index, row in subdf.iterrows():
+            t += "  - {}\n".format(row["Assembly Accession"])
+            for keycol in target_cols:
+                t += "    - {}: {}\n".format(keycol, row[keycol])
+
 
     t += "\n\n"
     t += "The number of policies of the embargoed genomes:\n"
@@ -830,11 +888,11 @@ def parse_args():
     print(args)
 
     # check that the tsvs exist
-    for tsv in args.t:
+    for tsv in args.tsvs:
         if not os.path.exists(tsv):
             raise IOError("The file {} does not exist.".format(tsv))
     # check that the directory exists
-    if not os.path.exists(args.d):
+    if not os.path.exists(args.rbh_directory):
         raise IOError("The directory {} does not exist.".format(args.rbh_directory))
     return args
 
@@ -960,20 +1018,53 @@ def main():
                 if correct_accession not in df["Assembly Accession"].tolist():
                     raise IOError("The accession {} is not in the dataframe, but we should have found it.".format(correct_accession))
                 else:
-                    if df[df["Assembly Accession"] == correct_accession]["Embargo"].tolist()[0] == "Embargoed":
-                        shutil.copy(accession_dict[key]["filepath"], embargodir)
-                    else:
+                    if df[df["Assembly Accession"] == correct_accession]["Embargo"].tolist()[0] == "Not Embargoed":
+                        # Here we are just getting the things specifically not embargoed.
                         shutil.copy(accession_dict[key]["filepath"], notembargodir)
+                    else:
+                        # The things that will end up here are things specifically "Embargoed" or "Embargo Ambiguous"
+                        #  There may be other categories that we add in the future.
+                        shutil.copy(accession_dict[key]["filepath"], embargodir)
+
         print()
         print()
 
+    # sort the df by lineage and embargo status, then reset the index
+    df = df.sort_values(by = ["Lineage", "Embargo"], ascending = [True, True])
+    df = df.reset_index(drop = True)
     # Write the three spreadsheets
     allspreadsheet        = os.path.join(args.output_directory, "spreadsheet_genomes_all_{}.tsv".format(datetoday))
     embargospreadsheet    = os.path.join(args.output_directory, "spreadsheet_genomes_embargoed_{}.tsv".format(datetoday))
     notembargospreadsheet = os.path.join(args.output_directory, "spreadsheet_genomes_notembargoed_{}.tsv".format(datetoday))
     df.to_csv(allspreadsheet, sep = "\t", index = False)
-    df[df["Embargo"] == "Embargoed"].to_csv(    embargospreadsheet, sep = "\t", index = False)
     df[df["Embargo"] == "Not Embargoed"].to_csv(notembargospreadsheet, sep = "\t", index = False)
+    # For the embargoed genomes, we include "Embargoed" and "Embargo Ambiguous".=
+    # It is just easier to take the inverse of the "Not Embargoed" genomes.
+    df[~df["Embargo"].isin(["Not Embargoed"])].to_csv(embargospreadsheet, sep = "\t", index = False)
+
+    # Write three spreadsheets with a limited set of columns.
+    keep_columns = ["Assembly Accession", "Current Accession", "Organism Name", "Organism Common Name",
+                    "Assembly Submitter", "Organism Taxonomic ID",
+                    "Embargo", "EmbargoPolicy", "EmbargoPolicyLink", "EmbargoReason", "EmbargoLiftPublication",
+                    "EmbargoLiftPublicationPMID", "EmbargoLiftPublicationDOI", "EmbargoLiftDate", "EmbargoDaysUntil",
+                    "Lineage", "Annotation Name",
+                    "Annotation Pipeline", "Annotation Provider",
+                    "Annotation Release Date", "Assembly BioSample Accession", "Assembly BioSample BioProject Accession",
+                    "Assembly BioSample Description Comment", "Assembly BioSample Description Organism Name",
+                    "Assembly BioSample Description Title", "Assembly BioSample Sample Identifiers Database",
+                    "Assembly BioSample Last updated", "Assembly BioSample Owner Name", "Assembly BioSample Publication date",
+                    "Assembly Description", "Assembly Level", "Assembly Name", "Assembly Notes", "Assembly Paired Assembly Accession",
+                    "Assembly Refseq Category", "Assembly Release Date"]
+    subdf = df[keep_columns]
+    allspreadsheet        = os.path.join(args.output_directory, "spreadsheet_genomes_all_{}_fewerColumns.tsv".format(datetoday))
+    embargospreadsheet    = os.path.join(args.output_directory, "spreadsheet_genomes_embargoed_{}_fewerColumns.tsv".format(datetoday))
+    notembargospreadsheet = os.path.join(args.output_directory, "spreadsheet_genomes_notembargoed_{}_fewerColumns.tsv".format(datetoday))
+    subdf.to_csv(allspreadsheet,        sep = "\t", index = False)
+    subdf[subdf["Embargo"] == "Not Embargoed"].to_csv(notembargospreadsheet, sep = "\t", index = False)
+    # For the embargoed genomes, we include "Embargoed" and "Embargo Ambiguous".=
+    # It is just easier to take the inverse of the "Not Embargoed" genomes.
+    subdf[~subdf["Embargo"].isin(["Not Embargoed"])].to_csv(embargospreadsheet, sep = "\t", index = False)
+
 
     # Write a report of the number of genomes in each category.
     reportfile = os.path.join(args.output_directory, "report_genomes_{}.txt".format(datetoday))
