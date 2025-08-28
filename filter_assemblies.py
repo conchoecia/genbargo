@@ -292,6 +292,10 @@ def _annotate_embargo_status_VGP(df, conservative = False) -> pd.DataFrame:
       - Website:
       - Embargo:  Says they are affiliated with the VGP on the 2024 page.
       - "Assembly Submitter" values: None found on access date of Tuesday, December 3rd, 2024.
+    - Leibniz Institute for Zoo and Wildlife Research
+      - Website:
+      - Embargo: There is an elephant sequencing project that has the VGP embargo.
+      - "Assembly Submitter" values: 1 elephant genome submitted on August 11th, 2025.
     - Revive & Restore
       - Website:
       - Embargo:  Says they are affiliated with the VGP on the 2024 page.
@@ -364,13 +368,15 @@ def _annotate_embargo_status_VGP(df, conservative = False) -> pd.DataFrame:
          "Kakapo",                     # Not seen, but the 2018 page specifies that there are Kakapo projects under the VGP umbrella
          "G10K",                       # Seen in the Assembly Submitter column on Tuesday December 3rd, 2024.
          "Genome 10K",                 # Seen in the Assembly Submitter column on Tuesday December 3rd, 2024.
-         "Telomere-to-Telomere Consortium"]
+         "Telomere-to-Telomere Consortium",
+         "Leibniz Institute for Zoo and Wildlife Research"]
     """
     VGP_policy_submitters = ["Bat1K",
                              "Bird10K",
                              "Human Pangenome Reference Consortium",
                              "G10K",
                              "Genome 10K",
+                             "Leibniz Institute for Zoo and Wildlife Research",
                              "Telomere-to-Telomere Consortium",
                              "Vertebrate Genomes Project"]
     VGP_policy_submitters += [x.lower() for x in VGP_policy_submitters]
@@ -583,7 +589,10 @@ def _annotate_embargo_status_Unknown(df) -> pd.DataFrame:
                 days_until = row["Assembly Release Date"] - pd.Timestamp.today()
                 df.at[index, "EmbargoDaysUntil"]  = days_until.days
             else:
-                raise IOError("We should have caught all of the genomes that are not embargoed by now, but there was message about an embargo in the \"Assembly BioSample Description Comment\" field for assembly {}".format(row["Assembly Accession"]))
+                e_msg =  "We should have caught all of the genomes that are not embargoed by now, but there was message about an embargo "
+                e_msg += "in the \"Assembly BioSample Description Comment\" field for assembly {}. ".format(row["Assembly Accession"])
+                e_msg += "The submitter of this assembly is {}.".format(row["Assembly Submitter"])
+                raise IOError(e_msg)
     return df
 
 def _annotate_embargo_status_embargoString(df):
@@ -1020,10 +1029,10 @@ def main():
 
     datetoday     = pd.Timestamp.today().strftime("%Y%m%d")
 
+    # First, check that the output directory exists
+    if not os.path.exists(args.output_directory):
+        os.makedirs(args.output_directory)
     if args.rbh_directory is not None:
-        # First, check that the output directory exists
-        if not os.path.exists(args.output_directory):
-            os.makedirs(args.output_directory)
 
         # Don't transfer files if the flag is set.
         if not args.no_transfer:
@@ -1071,6 +1080,7 @@ def main():
     # sort the df by lineage and embargo status, then reset the index
     df = df.sort_values(by = ["Lineage", "Embargo"], ascending = [True, True])
     df = df.reset_index(drop = True)
+
     # Write the three spreadsheets
     allspreadsheet        = os.path.join(args.output_directory, f"{args.prefix}_all_{datetoday}.tsv")
     embargospreadsheet    = os.path.join(args.output_directory, f"{args.prefix}_embargoed_{datetoday}.tsv")
