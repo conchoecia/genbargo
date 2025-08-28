@@ -673,18 +673,21 @@ def annotate_embargo_status(df, conservative = False) -> pd.DataFrame:
 
     return df
 
-def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dict):
+def generate_report(output_filepath, df, files_not_in_spreadsheet=None, accession_dict=None):
+    """Generate a report summarising genome embargo information.
+
+    ``files_not_in_spreadsheet`` and ``accession_dict`` are optional so this
+    function can be reused when a directory of rbh files is not supplied.
     """
-    This generates a report of the genomes that are embargoed and not embargoed, and those that
-      were in the directory but were not in the spreadsheet.
-    """
+    if files_not_in_spreadsheet is None:
+        files_not_in_spreadsheet = set()
+    if accession_dict is None:
+        accession_dict = {}
+
     # Check to make sure that the output directory exists.
     output_directory = os.path.dirname(output_filepath)
     if not os.path.exists(output_directory):
         raise IOError("The output directory {} does not exist.".format(output_directory))
-    ## Check to make sure that the output file does not already exist.
-    #if os.path.exists(output_filepath):
-    #    raise IOError("The output file {} already exists.".format(output_filepath))
     today_string = pd.Timestamp.today().strftime("%Y-%m-%d")
     # number of genomes in the spreadsheet
     num_genomes_spreadsheet = len(df)
@@ -693,7 +696,10 @@ def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dic
     # number of genomes in the directory but not in the spreadsheet
     num_genomes_not_in_spreadsheet = len(files_not_in_spreadsheet)
     # number of genomes in the spreadsheet but not in the directory
-    num_genomes_not_in_directory = len([x for x in df["Assembly Accession"] if x not in files_not_in_spreadsheet])
+    num_genomes_not_in_directory = (
+        len([x for x in df["Assembly Accession"] if x not in accession_dict])
+        if accession_dict else 0
+    )
     # number of genomes that are embargoed
     num_genomes_embargoed = len(df[df["Embargo"] == "Embargoed"])
     # Number of vertebrate genomes that are embargoed. Look for ;7742; in the lineage to determine if it is a vertebrate.
@@ -780,9 +786,10 @@ def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dic
     t += "\n"
     t += "Summary:\n"
     t += "  - Number of genomes in the spreadsheet: {}\n".format(num_genomes_spreadsheet)
-    t += "  - Number of genomes in the directory: {}\n".format(num_genomes_directory)
-    t += "  - Number of genomes in the directory but not in the spreadsheet: {}\n".format(num_genomes_not_in_spreadsheet)
-    t += "  - Number of genomes in the spreadsheet but not in the directory: {}\n".format(num_genomes_not_in_directory)
+    if accession_dict:
+        t += "  - Number of genomes in the directory: {}\n".format(num_genomes_directory)
+        t += "  - Number of genomes in the directory but not in the spreadsheet: {}\n".format(num_genomes_not_in_spreadsheet)
+        t += "  - Number of genomes in the spreadsheet but not in the directory: {}\n".format(num_genomes_not_in_directory)
     t += "  - Number of genomes that are embargoed: {}\n".format(num_genomes_embargoed)
     t += "    - # embargoed vertebrate (7742) genomes: {}\n".format(num_genomes_embargoed_vertebrate)
     t += "  - Number of genomes that are not embargoed: {}\n".format(num_genomes_not_embargoed)
