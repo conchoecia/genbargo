@@ -691,27 +691,39 @@ def annotate_embargo_status(df, conservative = False) -> pd.DataFrame:
 
     return df
 
-def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dict):
+def generate_report(output_filepath, df, files_not_in_spreadsheet=None, accession_dict=None):
+    """Generate a text report summarising genome embargo information.
+
+    When a directory of rbh files is not supplied the ``files_not_in_spreadsheet``
+    and ``accession_dict`` parameters can be ``None`` or empty.  In that case the
+    report omits any statistics about the rbh directory.
     """
-    This generates a report of the genomes that are embargoed and not embargoed, and those that
-      were in the directory but were not in the spreadsheet.
-    """
+    # Allow the caller to omit rbh information
+    if files_not_in_spreadsheet is None:
+        files_not_in_spreadsheet = set()
+    if accession_dict is None:
+        accession_dict = {}
+
     # Check to make sure that the output directory exists.
     output_directory = os.path.dirname(output_filepath)
     if not os.path.exists(output_directory):
         raise IOError("The output directory {} does not exist.".format(output_directory))
-    ## Check to make sure that the output file does not already exist.
     #if os.path.exists(output_filepath):
     #    raise IOError("The output file {} already exists.".format(output_filepath))
+
     today_string = pd.Timestamp.today().strftime("%Y-%m-%d")
+
     # number of genomes in the spreadsheet
     num_genomes_spreadsheet = len(df)
-    # number of genomes in the directory
+    # number of genomes in the directory (0 if no directory provided)
     num_genomes_directory = len(accession_dict)
     # number of genomes in the directory but not in the spreadsheet
     num_genomes_not_in_spreadsheet = len(files_not_in_spreadsheet)
     # number of genomes in the spreadsheet but not in the directory
-    num_genomes_not_in_directory = len([x for x in df["Assembly Accession"] if x not in files_not_in_spreadsheet])
+    num_genomes_not_in_directory = (
+        len([x for x in df["Assembly Accession"] if x not in accession_dict])
+        if accession_dict else 0
+    )
     # number of genomes that are embargoed
     num_genomes_embargoed = len(df[df["Embargo"] == "Embargoed"])
     # Number of vertebrate genomes that are embargoed. Look for ;7742; in the lineage to determine if it is a vertebrate.
@@ -798,9 +810,10 @@ def generate_report(output_filepath, df, files_not_in_spreadsheet, accession_dic
     t += "\n"
     t += "Summary:\n"
     t += "  - Number of genomes in the spreadsheet: {}\n".format(num_genomes_spreadsheet)
-    t += "  - Number of genomes in the directory: {}\n".format(num_genomes_directory)
-    t += "  - Number of genomes in the directory but not in the spreadsheet: {}\n".format(num_genomes_not_in_spreadsheet)
-    t += "  - Number of genomes in the spreadsheet but not in the directory: {}\n".format(num_genomes_not_in_directory)
+    if accession_dict:
+        t += "  - Number of genomes in the directory: {}\n".format(num_genomes_directory)
+        t += "  - Number of genomes in the directory but not in the spreadsheet: {}\n".format(num_genomes_not_in_spreadsheet)
+        t += "  - Number of genomes in the spreadsheet but not in the directory: {}\n".format(num_genomes_not_in_directory)
     t += "  - Number of genomes that are embargoed: {}\n".format(num_genomes_embargoed)
     t += "    - # embargoed vertebrate (7742) genomes: {}\n".format(num_genomes_embargoed_vertebrate)
     t += "  - Number of genomes that are not embargoed: {}\n".format(num_genomes_not_embargoed)
@@ -932,12 +945,12 @@ def main():
     list_of_ncbi_tsvs = args.tsvs
     directory_of_rbh_files = args.rbh_directory
 
-    # ONLY DO IF THE USER HAS PROVIDED A RBH DIRECTORY
+    # If the user has provided a directory of rbh files, load information about
+    # the files into ``accession_dict``; otherwise keep it empty so downstream
+    # code can still run.
+    accession_dict = {}
     if args.rbh_directory is not None:
-        # First load the directory of existing files
         rbhlist = [x for x in os.listdir(directory_of_rbh_files) if x.endswith(".rbh")]
-        # Next we make a dictionary that stores information about each accession.
-        #  This information will be saved and printed later.
         accession_dict = {x.split("_")[1].split("-")[2]:
                           {"filepath" : os.path.join(directory_of_rbh_files, x),
                            "filename" : x,
@@ -972,11 +985,10 @@ def main():
     #for entry in sorted([str(x) for x in df["Assembly Submitter"].unique().tolist()]):
     #    print(entry)
 
-    # ONLY DO IF THE USER HAS PROVIDED A RBH DIRECTORY
-    if args.rbh_directory is None:
-        # (3) Find the files that do not have an accession in the dataframe.
-        #     Also determine which genomes go into which folder in the end.
-        files_missing_in_tsv = set()
+    # Determine which genomes are missing from the spreadsheet when a directory
+    # of rbh files is supplied.
+    files_missing_in_tsv = set()
+    if args.rbh_directory is not None:
         accession_list = [x.replace("_", "") for x in df["Assembly Accession"].tolist()]
         for key in accession_dict:
             thisacc = accession_dict[key]["accession"].strip("_")
