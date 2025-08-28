@@ -3,9 +3,8 @@
 """
 The point of this is to filter a directory of pregenerated rbh files to remove those that may be under embargo
 
-# If the user does not supply a directory containing rbh files
-(1) Load a csv of annotated and unannotated genomes.
-(2) Identify accessions that are possibly under embargo still
+(2) Load a csv of annotated and unannotated genomes.
+(4) Identify accessions that are possibly under embargo still
      First, we calculate the embargo dates
      a) If the genome was released before May 1st 2024
        i) If the genome is annotated
@@ -31,25 +30,8 @@ The point of this is to filter a directory of pregenerated rbh files to remove t
        ii) else (the genome is not annotated)
          - The embargo lift date is one year from the assembly
            upload date
-(3) Add publication information for each assembly, update the embargo information if they were released through publication.
-(4) Write the files:
-  - Make a spreadsheet with the genome assemblies, the embargo status, and a description of why it is or is not under embargo.
-
-# If the user supplies a directory containing rbh files to look through
-(1) First load the directory of existing files
-(2) Load a csv of annotated and unannotated genomes.
-(3) Find the files that do not have an accession in the dataframe of assemblies.
-     Print these out for the user and make them type something
-     to continue or not.
-(4) Identify accessions that are possibly under embargo still
-  - Same steps as above
 (5) Add publication information for each assembly, update the embargo information if they were released through publication.
 (6) Write the files:
-  - Make a folder that has embargo’d genomes
-  - a folder that has genomes that are not embargo’d
-  - a folder of genomes that were not on the spreadsheet
-  - Output a log file that is dated to reflect the latest changes
-  - Touch a file in each directory stating the latest date at which the files in that directory were updated.
   - Make a spreadsheet with the genome assemblies, the embargo status, and a description of why it is or is not under embargo.
 """
 
@@ -886,34 +868,13 @@ def parse_args():
       - A flag to not transfer the rbhfiles
     """
     parser = argparse.ArgumentParser(description="Filter assemblies based on their embargo status.")
-    parser.add_argument("-t", "--tsvs",
-                        nargs    = "+",
-                        help     = "List of csvs that contain the annotated and unannotated genomes.")
-    parser.add_argument("-c", "--conservative",
-                        action   = "store_true",
-                        required = False,
-                        default  = False,
-                        help     = "Conservative mode for VGP genomes. Allows for the possibility that the annotation was released after the spreadsheet date.")
-    parser.add_argument("-p", "--prefix",
-                        required = False,
-                        default  = "spreadsheet_genomes",
-                        help     = "Prefix for the output files.")
-    # everything after this is related to saving the output files when the user has some input rbh files already downloaded.
-    parser.add_argument("-d", "--rbh_directory",
-                        required = False,
-                        default  = None,
-                        help     = "Directory of the rbh files.")
+    parser.add_argument("-t", "--tsvs", nargs="+", help="List of csvs that contain the annotated and unannotated genomes.")
+    parser.add_argument("-d", "--rbh_directory", help="Directory of the rbh files.")
     # default is the present working directory
     pwd = os.getcwd()
-    parser.add_argument("-o", "--output_directory",
-                        default  = pwd,
-                        required = False,
-                        help     = "Directory to put the output files in.")
-    parser.add_argument("-n", "--no_transfer",
-                        action   = "store_true",
-                        required = False,
-                        default  = False,
-                        help     = "Do not transfer the rbh files.")
+    parser.add_argument("-o", "--output_directory", default = pwd, help="Directory to put the output files in.")
+    parser.add_argument("-c", "--conservative", action="store_true", default = False, help="Conservative mode for VGP genomes. Allows for the possibility that the annotation was released after the spreadsheet date.")
+    parser.add_argument("-n", "--no_transfer", action="store_true", default = False, help="Do not transfer the rbh files.")
     args = parser.parse_args()
     print(args)
 
@@ -921,35 +882,41 @@ def parse_args():
     for tsv in args.tsvs:
         if not os.path.exists(tsv):
             raise IOError("The file {} does not exist.".format(tsv))
-    if args.rbh_directory is not None:
-        # check that the directory exists
-        if not os.path.exists(args.rbh_directory):
-            raise IOError("The directory {} does not exist.".format(args.rbh_directory))
+    # check that the directory exists
+    if not os.path.exists(args.rbh_directory):
+        raise IOError("The directory {} does not exist.".format(args.rbh_directory))
     return args
 
 def main():
     args = parse_args()
-    list_of_ncbi_tsvs = args.tsvs
+    list_of_NCBI_csvs = args.tsvs
     directory_of_rbh_files = args.rbh_directory
+    #list_of_NCBI_csvs = ["/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/annotated_genomes_chr_202312301553.tsv",
+    #                     "/lisc/scratch/molevo/dts/ODP_genomes/GenDB_scraper/odp_ncbi_genome_scraper/output/unannotated_genomes_chr_202312301553.tsv"]
+    #directory_of_rbh_files = "/lisc/scratch/molevo/dts/manifold/BCnSSimakov2022_current_rbh/"
 
-    # ONLY DO IF THE USER HAS PROVIDED A RBH DIRECTORY
-    if args.rbh_directory is not None:
-        # First load the directory of existing files
-        rbhlist = [x for x in os.listdir(directory_of_rbh_files) if x.endswith(".rbh")]
-        # Next we make a dictionary that stores information about each accession.
-        #  This information will be saved and printed later.
-        accession_dict = {x.split("_")[1].split("-")[2]:
-                          {"filepath" : os.path.join(directory_of_rbh_files, x),
-                           "filename" : x,
-                           "ALGname"  : x.split("_")[0],
-                           "binomial" : x.split("_")[1].split("-")[0],
-                           "ncbitaxid": x.split("_")[1].split("-")[1],
-                           "accession": x.split("_")[1].split("-")[2]}
-                          for x in rbhlist}
+    # (1) First load the directory of existing files
+    rbhlist = [x for x in os.listdir(directory_of_rbh_files) if x.endswith(".rbh")]
+    # Next we make a dictionary that stores information about each accession.
+    #  This information will be saved and printed later.
+    accession_dict = {x.split("_")[1].split("-")[2]:
+                      {"filepath" : os.path.join(directory_of_rbh_files, x),
+                       "filename" : x,
+                       "ALGname"  : x.split("_")[0],
+                       "binomial" : x.split("_")[1].split("-")[0],
+                       "ncbitaxid": x.split("_")[1].split("-")[1],
+                       "accession": x.split("_")[1].split("-")[2]}
+                      for x in rbhlist}
+    counter = 0
+    for key in accession_dict:
+        print(key, accession_dict[key])
+        counter += 1
+        if counter == 5:
+            break
 
     # (2) Load a csv of annotated and unannotated genomes.
     list_of_dfs = [pd.read_csv(x, sep = "\t")
-                   for x in list_of_ncbi_tsvs]
+                   for x in list_of_NCBI_csvs]
     # concatenate these into one dataframe
     df = pd.concat(list_of_dfs)
     df = df.reset_index(drop = True)
@@ -972,22 +939,20 @@ def main():
     #for entry in sorted([str(x) for x in df["Assembly Submitter"].unique().tolist()]):
     #    print(entry)
 
-    # ONLY DO IF THE USER HAS PROVIDED A RBH DIRECTORY
-    if args.rbh_directory is None:
-        # (3) Find the files that do not have an accession in the dataframe.
-        #     Also determine which genomes go into which folder in the end.
-        files_missing_in_tsv = set()
-        accession_list = [x.replace("_", "") for x in df["Assembly Accession"].tolist()]
-        for key in accession_dict:
-            thisacc = accession_dict[key]["accession"].strip("_")
-            if thisacc.strip("_") not in accession_list:
-                files_missing_in_tsv.add(key)
+    # (3) Find the files that do not have an accession in the dataframe.
+    #     Also determine which genomes go into which folder in the end.
+    files_missing_in_tsv = set()
+    accession_list = [x.replace("_", "") for x in df["Assembly Accession"].tolist()]
+    for key in accession_dict:
+        thisacc = accession_dict[key]["accession"].strip("_")
+        if thisacc.strip("_") not in accession_list:
+            files_missing_in_tsv.add(key)
 
-        if len(files_missing_in_tsv) > 0:
-            print("There are {} files that are missing in the TSV.".format(len(files_missing_in_tsv)))
-            print("  - They are:")
-            for key in files_missing_in_tsv:
-                print("    -", key, accession_dict[key]["filename"])
+    if len(files_missing_in_tsv) > 0:
+        print("There are {} files that are missing in the TSV.".format(len(files_missing_in_tsv)))
+        print("  - They are:")
+        for key in files_missing_in_tsv:
+            print("    -", key, accession_dict[key]["filename"])
 
     # (4) Identify accessions that are possibly under embargo still
     #   This calls many helper functions that annotate the genomes based on the submitter.
@@ -1008,62 +973,60 @@ def main():
     #  - report_genomes_YYYYMMDD.txt
 
     datetoday     = pd.Timestamp.today().strftime("%Y%m%d")
+    # First, check that the output directory exists
+    if not os.path.exists(args.output_directory):
+        os.makedirs(args.output_directory)
 
-    if args.rbh_directory is not None:
-        # First, check that the output directory exists
-        if not os.path.exists(args.output_directory):
-            os.makedirs(args.output_directory)
+    # Don't transfer files if the flag is set.
+    if not args.no_transfer:
+        # Next, make the subdirectories
+        # - genomes_embargoed_rbh_files_YYYYMMDD/
+        # - genomes_notembargoed_rbh_files_YYYYMMDD/
+        # - genomes_not_in_spreadsheet_rbh_files_YYYYMMDD/
+        embargodir    = os.path.join(args.output_directory, "genomes_embargoed_rbh_files_{}".format(datetoday))
+        notembargodir = os.path.join(args.output_directory, "genomes_notembargoed_rbh_files_{}".format(datetoday))
+        notintsvdir   = os.path.join(args.output_directory, "genomes_not_in_spreadsheet_rbh_files_{}".format(datetoday))
+        for dirname in [embargodir, notembargodir, notintsvdir]:
+            if not os.path.exists(dirname):
+                os.makedirs(dirname)
+        # Next, copy the rbh files to their respective directories
+        counter = 0
+        for key in accession_dict:
+            # print a single-line progress message
+            counter += 1
+            # format the last field as 2 decimal places
+            print("\r    Copying file {} of {} - {:.2f}%".format(
+                counter, len(accession_dict), 100*counter/len(accession_dict)), end = "")
+            correct_accession = key
+            # This is hacky and should be fixed later.
+            if (key[0:3] == "GCA") or (key[0:3] == "GCF"):
+                if key[3] != "_":
+                    correct_accession = key[:3] + "_" + key[3:]
 
-        # Don't transfer files if the flag is set.
-        if not args.no_transfer:
-            # Next, make the subdirectories
-            # - genomes_embargoed_rbh_files_YYYYMMDD/
-            # - genomes_notembargoed_rbh_files_YYYYMMDD/
-            # - genomes_not_in_spreadsheet_rbh_files_YYYYMMDD/
-            embargodir    = os.path.join(args.output_directory, "genomes_embargoed_rbh_files_{}".format(datetoday))
-            notembargodir = os.path.join(args.output_directory, "genomes_notembargoed_rbh_files_{}".format(datetoday))
-            notintsvdir   = os.path.join(args.output_directory, "genomes_not_in_spreadsheet_rbh_files_{}".format(datetoday))
-            for dirname in [embargodir, notembargodir, notintsvdir]:
-                if not os.path.exists(dirname):
-                    os.makedirs(dirname)
-            # Next, copy the rbh files to their respective directories
-            counter = 0
-            for key in accession_dict:
-                # print a single-line progress message
-                counter += 1
-                # format the last field as 2 decimal places
-                print("\r    Copying file {} of {} - {:.2f}%".format(
-                    counter, len(accession_dict), 100*counter/len(accession_dict)), end = "")
-                correct_accession = key
-                # This is hacky and should be fixed later.
-                if (key[0:3] == "GCA") or (key[0:3] == "GCF"):
-                    if key[3] != "_":
-                        correct_accession = key[:3] + "_" + key[3:]
-
-                if key in files_missing_in_tsv:
-                    shutil.copy(accession_dict[key]["filepath"], notintsvdir)
+            if key in files_missing_in_tsv:
+                shutil.copy(accession_dict[key]["filepath"], notintsvdir)
+            else:
+                if correct_accession not in df["Assembly Accession"].tolist():
+                    raise IOError("The accession {} is not in the dataframe, but we should have found it.".format(correct_accession))
                 else:
-                    if correct_accession not in df["Assembly Accession"].tolist():
-                        raise IOError("The accession {} is not in the dataframe, but we should have found it.".format(correct_accession))
+                    if df[df["Assembly Accession"] == correct_accession]["Embargo"].tolist()[0] == "Not Embargoed":
+                        # Here we are just getting the things specifically not embargoed.
+                        shutil.copy(accession_dict[key]["filepath"], notembargodir)
                     else:
-                        if df[df["Assembly Accession"] == correct_accession]["Embargo"].tolist()[0] == "Not Embargoed":
-                            # Here we are just getting the things specifically not embargoed.
-                            shutil.copy(accession_dict[key]["filepath"], notembargodir)
-                        else:
-                            # The things that will end up here are things specifically "Embargoed" or "Embargo Ambiguous"
-                            #  There may be other categories that we add in the future.
-                            shutil.copy(accession_dict[key]["filepath"], embargodir)
+                        # The things that will end up here are things specifically "Embargoed" or "Embargo Ambiguous"
+                        #  There may be other categories that we add in the future.
+                        shutil.copy(accession_dict[key]["filepath"], embargodir)
 
-            print()
-            print()
+        print()
+        print()
 
     # sort the df by lineage and embargo status, then reset the index
     df = df.sort_values(by = ["Lineage", "Embargo"], ascending = [True, True])
     df = df.reset_index(drop = True)
     # Write the three spreadsheets
-    allspreadsheet        = os.path.join(args.output_directory, f"{args.prefix}_all_{datetoday}.tsv")
-    embargospreadsheet    = os.path.join(args.output_directory, f"{args.prefix}_embargoed_{datetoday}.tsv")
-    notembargospreadsheet = os.path.join(args.output_directory, f"{args.prefix}_notembargoed_{datetoday}.tsv")
+    allspreadsheet        = os.path.join(args.output_directory, "spreadsheet_genomes_all_{}.tsv".format(datetoday))
+    embargospreadsheet    = os.path.join(args.output_directory, "spreadsheet_genomes_embargoed_{}.tsv".format(datetoday))
+    notembargospreadsheet = os.path.join(args.output_directory, "spreadsheet_genomes_notembargoed_{}.tsv".format(datetoday))
     df.to_csv(allspreadsheet, sep = "\t", index = False)
     df[df["Embargo"] == "Not Embargoed"].to_csv(notembargospreadsheet, sep = "\t", index = False)
     # For the embargoed genomes, we include "Embargoed" and "Embargo Ambiguous".=
@@ -1084,15 +1047,15 @@ def main():
                     "Assembly Description", "Assembly Level", "Assembly Name", "Assembly Notes", "Assembly Paired Assembly Accession",
                     "Assembly Refseq Category", "Assembly Release Date"]
     subdf = df[keep_columns]
-    #                                             default is:     spreadsheet_genomes_all_{datetoday}...
-    allspreadsheet        = os.path.join(args.output_directory, f"{args.prefix}_all_{datetoday}_fewerColumns.tsv")
-    embargospreadsheet    = os.path.join(args.output_directory, f"{args.prefix}_embargoed_{datetoday}_fewerColumns.tsv")
-    notembargospreadsheet = os.path.join(args.output_directory, f"{args.prefix}_notembargoed_{datetoday}_fewerColumns.tsv")
-    subdf.to_csv(allspreadsheet, sep = "\t", index = False)
+    allspreadsheet        = os.path.join(args.output_directory, "spreadsheet_genomes_all_{}_fewerColumns.tsv".format(datetoday))
+    embargospreadsheet    = os.path.join(args.output_directory, "spreadsheet_genomes_embargoed_{}_fewerColumns.tsv".format(datetoday))
+    notembargospreadsheet = os.path.join(args.output_directory, "spreadsheet_genomes_notembargoed_{}_fewerColumns.tsv".format(datetoday))
+    subdf.to_csv(allspreadsheet,        sep = "\t", index = False)
     subdf[subdf["Embargo"] == "Not Embargoed"].to_csv(notembargospreadsheet, sep = "\t", index = False)
     # For the embargoed genomes, we include "Embargoed" and "Embargo Ambiguous".=
     # It is just easier to take the inverse of the "Not Embargoed" genomes.
     subdf[~subdf["Embargo"].isin(["Not Embargoed"])].to_csv(embargospreadsheet, sep = "\t", index = False)
+
 
     # Write a report of the number of genomes in each category.
     reportfile = os.path.join(args.output_directory, "report_genomes_{}.txt".format(datetoday))
