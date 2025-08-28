@@ -56,7 +56,6 @@ The point of this is to filter a directory of pregenerated rbh files to remove t
 import argparse
 import os
 import shutil
-import sys
 import pandas as pd
 
 def _required_column_check(df):
