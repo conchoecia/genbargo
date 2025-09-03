@@ -920,13 +920,13 @@ def parse_args():
                         default  = "spreadsheet_genomes",
                         help     = "Prefix for the output files.")
     # everything after this is related to saving the output files when the user has some input rbh files already downloaded.
-    parser.add_argument("-d", "--rbh_directory",
+    parser.add_argument("-r", "--rbh_directory",
                         required = False,
                         default  = None,
                         help     = "Directory of the rbh files.")
     # default is the present working directory
     pwd = os.getcwd()
-    parser.add_argument("-o", "--output_directory",
+    parser.add_argument("-d", "--output_directory",
                         default  = pwd,
                         required = False,
                         help     = "Directory to put the output files in.")
@@ -1116,7 +1116,7 @@ def main():
     subdf[~subdf["Embargo"].isin(["Not Embargoed"])].to_csv(embargospreadsheet, sep = "\t", index = False)
 
     # Write a report of the number of genomes in each category.
-    reportfile = os.path.join(args.output_directory, "report_genomes_{}.txt".format(datetoday))
+    reportfile = os.path.join(args.output_directory, f"{args.prefix}_report.txt")
     generate_report(reportfile, df, files_missing_in_tsv, accession_dict)
 
 if __name__ == "__main__":
