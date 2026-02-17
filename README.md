@@ -39,7 +39,7 @@ Embargo Policies:
       - Embargo: The EBP is listed on the 2024 VGP/G10K website under the section of "contributing, affiliated projects." No embargo specified on the EBP website on access date of Tuesday, December 3rd, 2024.
       - Submitting genomes to NCBI/ENA as: We did not find EBP, Earth BioGenome Project, or similar searches as a ENA/NCBI genome submitter in the "Assembly Submitter" field in our list of chromosome-scale genomes as of December 3rd, 2024.
 
-    # CONTINUE FROM HERE
+    # To Determine
     - Paratus Sciences Bat Project
       - Website: https://paratussciences.com/
       - Embargo:  Says they are affiliated with the VGP on the 2024 page. No embargo specified on their website on access date of Tuesday, December 3rd, 2024.
