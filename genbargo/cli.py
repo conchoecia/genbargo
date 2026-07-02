@@ -28,7 +28,7 @@ DEFAULT_CONFIG = {
     "prefix": "spreadsheet_genomes",
     "conservative": True,
     "query_publications": True,
-    "email": "darrin.schultz@univie.ac.at",
+    "email": "dts@lehigh.edu",
     "api_key": None,
 }
 

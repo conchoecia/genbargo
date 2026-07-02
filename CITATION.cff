@@ -5,8 +5,8 @@ type: software
 authors:
   - family-names: Schultz
     given-names: Darrin T.
-    email: darrin.schultz@univie.ac.at
-    affiliation: University of Vienna
+    email: dts@lehigh.edu
+    affiliation: Lehigh University
 repository-code: "https://github.com/conchoecia/genbargo"
 url: "https://github.com/conchoecia/genbargo"
 license: MIT
@@ -14,6 +14,5 @@ version: 0.2.0
 keywords:
   - genomics
   - embargo
-  - Vertebrate Genomes Project
   - NCBI
   - bioinformatics

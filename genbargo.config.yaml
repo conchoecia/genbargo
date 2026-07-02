@@ -26,6 +26,6 @@ conservative: true
 query_publications: true
 # Contact email for NCBI Entrez (NCBI requires this). Override in CI via the
 # ENTREZ_EMAIL secret/env var.
-email: darrin.schultz@univie.ac.at
+email: dts@lehigh.edu
 # Optional NCBI API key (set via the NCBI_API_KEY secret/env var in CI).
 api_key: null
