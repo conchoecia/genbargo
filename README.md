@@ -21,7 +21,9 @@ that release them early, and reports which assemblies are safe to use.
 2. **Annotate** each assembly's embargo status from its submitter's policy
    (`genbargo filter`). See [`docs/embargo_policies.md`](docs/embargo_policies.md).
 3. **Link publications** — a published VGP assembly is released from its embargo
-   (`genbargo pubs`; manual table + cached NCBI Entrez lookups).
+   (`genbargo pubs`; manual table + cached NCBI Entrez lookups). Curating which
+   paper published each genome is a manual, per-assembly research task — see
+   [`docs/publication_curation_handoff.md`](docs/publication_curation_handoff.md).
 4. **Report** — write per-status spreadsheets, a text report, and a Markdown
    dashboard (`genbargo report`).
 
