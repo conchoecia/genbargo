@@ -1,0 +1,16 @@
+name: genbargo
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python>=3.9
+  - pandas
+  - biopython
+  - ete4
+  - pyyaml
+  - ncbi-datasets-cli
+  - pip
+  - pytest
+  - ruff
+  - pip:
+      - -e .

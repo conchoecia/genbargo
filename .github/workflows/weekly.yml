@@ -1,0 +1,48 @@
+name: weekly-embargo-dashboard
+
+# Regenerate the embargo dashboard from fresh NCBI data once a week.
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday at 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up conda environment (with ncbi-datasets-cli, ete4, pandas)
+        uses: mamba-org/setup-micromamba@v1
+        with:
+          environment-file: environment.yml
+          cache-environment: true
+
+      # The ete4 NCBI taxonomy database (~hundreds of MB) is built on first use
+      # and needed only for the Lineage column. Cache it so later runs are fast.
+      - name: Cache ete4 taxonomy database
+        uses: actions/cache@v4
+        with:
+          path: ~/.local/share/ete
+          key: ete4-taxdump-v1
+
+      - name: Scrape NCBI, annotate embargoes, and rebuild the dashboard
+        shell: bash -el {0}
+        env:
+          ENTREZ_EMAIL: ${{ secrets.ENTREZ_EMAIL }}
+          NCBI_API_KEY: ${{ secrets.NCBI_API_KEY }}
+        run: |
+          genbargo all --config genbargo.config.yaml
+
+      - name: Commit the updated dashboard
+        shell: bash -el {0}
+        run: |
+          git config --local user.email "actions@github.com"
+          git config --local user.name "genbargo bot"
+          git add dashboard assembly_specifications/publications_cache.tsv
+          git commit -m "weekly: refresh embargo dashboard ($(date -u +%Y-%m-%d))" \
+            || echo "No changes to commit"
+          git push || echo "Nothing to push"

@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "genbargo"
+version = "0.2.0"
+description = "Embargo status and publication tracking for genome assemblies"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { file = "LICENSE" }
+authors = [{ name = "Darrin T. Schultz", email = "darrin.schultz@univie.ac.at" }]
+keywords = ["genomics", "embargo", "VGP", "NCBI", "bioinformatics"]
+dependencies = [
+    "pandas",
+    "biopython",
+    "ete4",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/conchoecia/genbargo"
+Repository = "https://github.com/conchoecia/genbargo"
+
+[project.scripts]
+genbargo = "genbargo.cli:main"
+
+[tool.setuptools]
+packages = ["genbargo"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+# Keep the linter friendly to the existing style; flag real problems only.
+select = ["E", "F", "W", "I"]
+ignore = ["E501", "E741"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

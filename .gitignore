@@ -1,5 +1,19 @@
+# editor / scratch
 /filter_assemblies.py~
 run_filter.sh
 run_dbbuilder.sh
 testing*/*
 *.swp
+
+# python
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# genbargo generated data (dashboard is committed; raw scrape/output are not)
+/input/
+/output/

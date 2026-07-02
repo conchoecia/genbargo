@@ -1,0 +1,19 @@
+cff-version: 1.2.0
+title: "genbargo: embargo status and publication tracking for genome assemblies"
+message: "If you use this software, please cite it using these metadata."
+type: software
+authors:
+  - family-names: Schultz
+    given-names: Darrin T.
+    email: darrin.schultz@univie.ac.at
+    affiliation: University of Vienna
+repository-code: "https://github.com/conchoecia/genbargo"
+url: "https://github.com/conchoecia/genbargo"
+license: MIT
+version: 0.2.0
+keywords:
+  - genomics
+  - embargo
+  - Vertebrate Genomes Project
+  - NCBI
+  - bioinformatics
