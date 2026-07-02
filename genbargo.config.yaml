@@ -1,0 +1,31 @@
+# genbargo configuration
+#
+# Used by `genbargo scrape` and the weekly GitHub Action. Command-line flags
+# override anything set here.
+
+# NCBI taxon to scrape. 33208 = Metazoa (all animals); 7742 = Vertebrata.
+taxon: 33208
+
+# Where scraped input TSVs are written.
+input_dir: input
+
+# Where the embargo spreadsheets/report are written.
+output_dir: output
+
+# Where the Markdown dashboard is written (rendered on the GitHub repo page).
+dashboard_dir: dashboard
+
+# Prefix for the embargo output spreadsheets.
+prefix: spreadsheet_genomes
+
+# Use the conservative VGP embargo estimate for unannotated assemblies.
+conservative: true
+
+# --- Publication linking ---
+# Query NCBI Entrez for the publications of embargoed assemblies.
+query_publications: true
+# Contact email for NCBI Entrez (NCBI requires this). Override in CI via the
+# ENTREZ_EMAIL secret/env var.
+email: dts@lehigh.edu
+# Optional NCBI API key (set via the NCBI_API_KEY secret/env var in CI).
+api_key: null
