@@ -148,3 +148,14 @@ Embargo Policies:
       - Website:
       - Embargo:  Says they are affiliated with the VGP on the 2024 page.
       - "Assembly Submitter" values: None found on access date of Tuesday, December 3rd, 2024.
+
+## Citing genbargo
+
+If you use `genbargo` in your work, please cite the following paper:
+
+> Schultz, D.T., Blümel, A., Destanović, D., Sarigol, F., & Simakov, O. (2026).
+> Topological mixing and irreversibility in animal chromosome evolution.
+> *Science Advances*, **12**(34), eadz5561.
+> [https://doi.org/10.1126/sciadv.adz5561](https://doi.org/10.1126/sciadv.adz5561)
+
+See also [`CITATION.cff`](CITATION.cff).
